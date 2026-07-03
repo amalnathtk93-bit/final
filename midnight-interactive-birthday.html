@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Midnight - Navya</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <style>
+    :root {
+      --black: #000;
+      --midnight: #06101f;
+      --moon: #f7f4ea;
+      --gold: #d6b66b;
+      --soft: rgba(247, 244, 234, .78);
+      --thin: rgba(247, 244, 234, .18);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: var(--moon);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+      touch-action: none;
+    }
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      opacity: 0;
+    }
+    .grain {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      opacity: .1;
+      mix-blend-mode: screen;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 1px, transparent 1px),
+        radial-gradient(circle at 70% 60%, rgba(255,255,255,.18) 0 1px, transparent 1px);
+      background-size: 3px 3px, 5px 5px;
+      z-index: 7;
+    }
+    .vignette {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      background:
+        radial-gradient(circle at 50% 42%, transparent 0 34%, rgba(0,0,0,.12) 62%, rgba(0,0,0,.82) 100%),
+        linear-gradient(180deg, rgba(0,0,0,.45), transparent 42%, rgba(0,0,0,.62));
+    }
+    .hud {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      place-items: center;
+      padding: clamp(18px, 4vw, 52px);
+    }
+    .line, .final-line {
+      max-width: min(860px, 90vw);
+      text-align: center;
+      font-family: Cinzel, Georgia, serif;
+      font-size: clamp(2rem, 7vw, 6rem);
+      font-weight: 400;
+      line-height: 1.08;
+      opacity: 0;
+      text-shadow: 0 0 42px rgba(247,244,234,.26);
+    }
+    .final-line {
+      max-width: min(980px, 90vw);
+      font-size: clamp(1.55rem, 5vw, 4.35rem);
+      line-height: 1.22;
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: max(94px, calc(env(safe-area-inset-bottom) + 84px));
+      z-index: 12;
+      transform: translateX(-50%) translateY(8px);
+      width: min(440px, calc(100vw - 36px));
+      text-align: center;
+      color: rgba(247,244,234,.82);
+      font-family: Cinzel, Georgia, serif;
+      font-size: clamp(.78rem, 2.2vw, 1.08rem);
+      line-height: 1.5;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      opacity: 0;
+      pointer-events: none;
+      text-shadow: 0 0 22px rgba(214,182,107,.34);
+    }
+    .whisper {
+      font-family: Cinzel, Georgia, serif;
+      text-transform: uppercase;
+      font-size: clamp(.68rem, 1.25vw, .92rem);
+      letter-spacing: .48em;
+      color: rgba(247,244,234,.62);
+      margin-bottom: 18px;
+    }
+    .enter {
+      pointer-events: auto;
+      opacity: 0;
+      border: 1px solid rgba(214,182,107,.56);
+      color: var(--moon);
+      background: rgba(0,0,0,.22);
+      backdrop-filter: blur(18px);
+      padding: 16px 34px;
+      min-width: 156px;
+      height: 54px;
+      border-radius: 4px;
+      font-family: Cinzel, Georgia, serif;
+      font-size: .82rem;
+      letter-spacing: .42em;
+      cursor: pointer;
+      box-shadow: 0 0 42px rgba(214,182,107,.12), inset 0 0 24px rgba(247,244,234,.04);
+      transition: border-color .5s, background .5s, transform .5s;
+    }
+    .enter:hover { transform: translateY(-1px); border-color: rgba(247,244,234,.86); background: rgba(214,182,107,.07); }
+    .topbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 0;
+      z-index: 11;
+      padding: max(20px, env(safe-area-inset-top)) clamp(18px, 4vw, 54px) 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      opacity: 0;
+    }
+    .brand {
+      font-family: Cinzel, Georgia, serif;
+      font-size: .76rem;
+      letter-spacing: .34em;
+      text-transform: uppercase;
+      color: rgba(247,244,234,.72);
+    }
+    .countdown {
+      min-width: 210px;
+      text-align: right;
+      font-family: Cinzel, Georgia, serif;
+      color: var(--moon);
+      text-shadow: 0 0 28px rgba(247,244,234,.18);
+    }
+    .countdown .time {
+      font-size: clamp(1.35rem, 4vw, 3rem);
+      letter-spacing: .12em;
+    }
+    .countdown .caption {
+      margin-top: 5px;
+      font-size: .68rem;
+      letter-spacing: .34em;
+      color: rgba(247,244,234,.48);
+      text-transform: uppercase;
+    }
+    .dock {
+      position: fixed;
+      left: 50%;
+      bottom: max(22px, env(safe-area-inset-bottom));
+      z-index: 11;
+      display: flex;
+      gap: 10px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      opacity: 0;
+    }
+    .tool {
+      width: 48px;
+      height: 48px;
+      border-radius: 999px;
+      border: 1px solid rgba(247,244,234,.18);
+      background: rgba(0,0,0,.24);
+      color: var(--moon);
+      backdrop-filter: blur(16px);
+      pointer-events: auto;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+      transition: transform .3s, border-color .3s, background .3s;
+    }
+    .tool:hover { transform: translateY(-2px); border-color: rgba(214,182,107,.7); background: rgba(214,182,107,.08); }
+    .panel, .letter, .cake-panel {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 12;
+      width: min(520px, calc(100vw - 34px));
+      transform: translate(-50%, -50%) scale(.96);
+      border: 1px solid rgba(247,244,234,.14);
+      background: linear-gradient(180deg, rgba(8,13,22,.82), rgba(0,0,0,.68));
+      color: rgba(247,244,234,.86);
+      padding: clamp(24px, 5vw, 42px);
+      border-radius: 6px;
+      box-shadow: 0 28px 90px rgba(0,0,0,.62), inset 0 0 50px rgba(247,244,234,.035);
+      backdrop-filter: blur(24px);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .panel.open, .letter.open, .cake-panel.open { pointer-events: auto; }
+    .panel p, .letter p {
+      margin: 0;
+      font-family: Cinzel, Georgia, serif;
+      font-size: clamp(1.25rem, 4.5vw, 2.15rem);
+      line-height: 1.55;
+      text-align: center;
+    }
+    .close {
+      position: absolute;
+      right: 12px;
+      top: 10px;
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: rgba(247,244,234,.62);
+      font-size: 1.25rem;
+      cursor: pointer;
+    }
+    .letter {
+      background: linear-gradient(145deg, rgba(247,244,234,.92), rgba(222,211,185,.92));
+      color: #16130d;
+      transform: translate(-50%, -50%) scale(.72) rotateX(70deg);
+      transform-origin: 50% 100%;
+    }
+    .letter p {
+      font-family: "Segoe Print", "Bradley Hand ITC", cursive;
+      font-size: clamp(1.05rem, 3.8vw, 1.72rem);
+      color: #17120c;
+    }
+    .cake-panel {
+      left: auto;
+      right: clamp(16px, 4vw, 42px);
+      top: auto;
+      bottom: max(22px, env(safe-area-inset-bottom));
+      width: min(260px, calc(100vw - 32px));
+      transform: translateY(12px) scale(.96);
+      padding: 18px 18px 16px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(214,182,107,.16), transparent 45%),
+        linear-gradient(180deg, rgba(10,12,18,.68), rgba(0,0,0,.54));
+      border-color: rgba(214,182,107,.28);
+    }
+    .cake-panel h2 {
+      margin: 0 0 12px;
+      font-family: Cinzel, Georgia, serif;
+      font-weight: 400;
+      font-size: .82rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(247,244,234,.74);
+    }
+    .blow {
+      border: 1px solid rgba(214,182,107,.62);
+      background: rgba(0,0,0,.2);
+      color: var(--moon);
+      padding: 9px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: Cinzel, Georgia, serif;
+      font-size: .66rem;
+      letter-spacing: .16em;
+    }
+    .hug-btn {
+      position: fixed;
+      left: 50%;
+      bottom: max(26px, env(safe-area-inset-bottom));
+      z-index: 13;
+      transform: translateX(-50%) translateY(12px);
+      min-width: 178px;
+      height: 50px;
+      border: 1px solid rgba(214,182,107,.45);
+      border-radius: 999px;
+      background: rgba(0,0,0,.24);
+      color: rgba(247,244,234,.9);
+      backdrop-filter: blur(18px);
+      cursor: pointer;
+      font-family: Cinzel, Georgia, serif;
+      font-size: .74rem;
+      letter-spacing: .22em;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 0 40px rgba(214,182,107,.12), inset 0 0 24px rgba(247,244,234,.04);
+    }
+    .flash {
+      position: fixed;
+      inset: 0;
+      z-index: 15;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+    }
+    @media (max-width: 680px) {
+      .hud { padding: 18px; }
+      .line { max-width: 92vw; font-size: clamp(1.75rem, 10vw, 3.7rem); }
+      .final-line { max-width: 88vw; font-size: clamp(1.35rem, 8vw, 3rem); }
+      .topbar { align-items: flex-start; gap: 12px; padding-left: 16px; padding-right: 16px; }
+      .brand { max-width: 112px; line-height: 1.55; font-size: .62rem; letter-spacing: .24em; }
+      .countdown { min-width: 132px; }
+      .countdown .time { font-size: 1.25rem; }
+      .countdown .caption { font-size: .55rem; letter-spacing: .22em; }
+      .dock { gap: 8px; }
+      .tool { width: 44px; height: 44px; }
+      .toast { bottom: max(86px, calc(env(safe-area-inset-bottom) + 76px)); font-size: .72rem; letter-spacing: .12em; }
+      .panel, .letter { width: calc(100vw - 28px); padding: 24px 20px; }
+      .cake-panel {
+        right: 14px;
+        bottom: max(14px, env(safe-area-inset-bottom));
+        width: min(212px, calc(100vw - 28px));
+        padding: 14px 14px 13px;
+      }
+      .cake-panel h2 { font-size: .68rem; margin-bottom: 10px; }
+      .blow { padding: 8px 11px; font-size: .58rem; }
+      .hug-btn { min-width: 148px; height: 44px; font-size: .64rem; letter-spacing: .16em; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="world"></canvas>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+  <div class="flash" id="flash"></div>
+  <div class="toast" id="toast"></div>
+  <button class="hug-btn" id="hugBtn">SEND HUG</button>
+
+  <main class="hud" aria-live="polite">
+    <div>
+      <div class="whisper" id="whisper"></div>
+      <div class="line" id="line"></div>
+      <button class="enter" id="enter">ENTER</button>
+    </div>
+  </main>
+
+  <section class="topbar" id="topbar">
+    <div class="brand">Midnight<br>For Navya</div>
+    <div class="countdown">
+      <div class="time" id="time">00:00:00</div>
+      <div class="caption" id="countCaption">until midnight</div>
+    </div>
+  </section>
+
+  <nav class="dock" id="dock" aria-label="Midnight interactions">
+    <button class="tool" id="lantern" title="Release a lantern" aria-label="Release a lantern">✧</button>
+    <button class="tool" id="letterBtn" title="Open a letter" aria-label="Open a letter">□</button>
+    <button class="tool" id="constellation" title="Connect stars" aria-label="Connect stars">⋯</button>
+    <button class="tool" id="petals" title="Catch petals" aria-label="Catch petals">⌁</button>
+  </nav>
+
+  <aside class="panel" id="note"><button class="close" data-close="note">×</button><p id="noteText"></p></aside>
+  <aside class="letter" id="paper"><button class="close" data-close="paper">×</button><p id="paperText"></p></aside>
+  <aside class="cake-panel" id="cakePanel">
+    <h2>Make a wish</h2>
+    <button class="blow" id="blow">BLOW</button>
+  </aside>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('world');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x03060d, 0.028);
+      const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, .1, 420);
+      camera.position.set(0, 7.6, 24);
+
+      const clock = new THREE.Clock();
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      const targetLook = new THREE.Vector3(0, 2.4, 0);
+      const interactive = [];
+      const openedStars = new Set();
+      let entered = false;
+      let finalStarted = false;
+      let moonGlow = 1;
+      let collectedFireflies = 0;
+      let constellationMode = false;
+      let targetMidnight = nextMidnight();
+
+      const ui = {
+        line: document.getElementById('line'),
+        whisper: document.getElementById('whisper'),
+        enter: document.getElementById('enter'),
+        topbar: document.getElementById('topbar'),
+        dock: document.getElementById('dock'),
+        time: document.getElementById('time'),
+        note: document.getElementById('note'),
+        noteText: document.getElementById('noteText'),
+        paper: document.getElementById('paper'),
+        paperText: document.getElementById('paperText'),
+        cakePanel: document.getElementById('cakePanel'),
+        countCaption: document.getElementById('countCaption'),
+        flash: document.getElementById('flash'),
+        toast: document.getElementById('toast'),
+        hugBtn: document.getElementById('hugBtn'),
+        blow: document.getElementById('blow')
+      };
+
+      const notes = [
+        'I hope today becomes unforgettable.',
+        'The moon has been protecting a little secret.',
+        'Someone spent a long time creating tonight.',
+        'A quiet wish has been waiting in the sky.',
+        'Some surprises need the whole night to bloom.'
+      ];
+      const moonLines = [
+        "I'm waiting too.",
+        'Almost.',
+        'I promised not to tell.',
+        'The stars asked me to stay quiet.',
+        'Midnight knows your name.'
+      ];
+      const letters = [
+        'Dear Navya, some people make ordinary days feel gently lit from within.',
+        'Tonight was made slowly, carefully, with every little second saving something for you.',
+        'May this year meet you softly, protect your smile, and bring you places that feel like home.'
+      ];
+
+      const audio = createAudio();
+      const world = createWorld();
+      intro();
+      animate();
+      setInterval(updateCountdown, 250);
+
+      function createWorld() {
+        scene.add(new THREE.AmbientLight(0x6f7fa6, .35));
+        const moonLight = new THREE.DirectionalLight(0xece8d2, 1.65);
+        moonLight.position.set(-18, 32, -24);
+        scene.add(moonLight);
+        const goldLight = new THREE.PointLight(0xd6b66b, 0, 80);
+        goldLight.position.set(0, 5, 7);
+        scene.add(goldLight);
+
+        const sky = new THREE.Mesh(
+          new THREE.SphereGeometry(190, 48, 32),
+          new THREE.MeshBasicMaterial({ color: 0x02050b, side: THREE.BackSide })
+        );
+        scene.add(sky);
+
+        const moonCanvas = radialCanvas(512, [
+          [0, 'rgba(255,255,246,1)'],
+          [.42, 'rgba(247,244,234,.92)'],
+          [.7, 'rgba(214,209,191,.58)'],
+          [1, 'rgba(247,244,234,0)']
+        ], true);
+        const moon = new THREE.Mesh(
+          new THREE.PlaneGeometry(13, 13),
+          new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(moonCanvas), transparent: true, depthWrite: false })
+        );
+        moon.position.set(-18, 25, -62);
+        moon.userData.kind = 'moon';
+        scene.add(moon);
+        interactive.push(moon);
+
+        const glow = new THREE.Mesh(
+          new THREE.PlaneGeometry(30, 30),
+          new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(radialCanvas(512, [[0, 'rgba(247,244,234,.36)'], [1, 'rgba(247,244,234,0)']])), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+        );
+        glow.position.copy(moon.position).add(new THREE.Vector3(0, 0, .1));
+        scene.add(glow);
+
+        const water = new THREE.Mesh(
+          new THREE.PlaneGeometry(260, 180, 140, 90),
+          new THREE.MeshStandardMaterial({ color: 0x07101c, metalness: .62, roughness: .22, transparent: true, opacity: .92 })
+        );
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -1.05;
+        water.userData.kind = 'water';
+        scene.add(water);
+        interactive.push(water);
+
+        const moonReflection = new THREE.Mesh(
+          new THREE.PlaneGeometry(14, 62),
+          new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(radialCanvas(256, [[0, 'rgba(247,244,234,.28)'], [.4, 'rgba(214,182,107,.14)'], [1, 'rgba(247,244,234,0)']])), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })
+        );
+        moonReflection.rotation.x = -Math.PI / 2;
+        moonReflection.position.set(-10, -.98, -26);
+        scene.add(moonReflection);
+
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 900;
+        const starPos = new Float32Array(starCount * 3);
+        const starAlpha = new Float32Array(starCount);
+        for (let i = 0; i < starCount; i++) {
+          const r = 76 + Math.random() * 95;
+          const a = Math.random() * Math.PI * 2;
+          starPos[i * 3] = Math.cos(a) * r;
+          starPos[i * 3 + 1] = 16 + Math.random() * 65;
+          starPos[i * 3 + 2] = Math.sin(a) * r - 35;
+          starAlpha[i] = .35 + Math.random() * .65;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        starGeo.setAttribute('alpha', new THREE.BufferAttribute(starAlpha, 1));
+        const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xf7f4ea, size: .12, transparent: true, opacity: .78, blending: THREE.AdditiveBlending }));
+        scene.add(stars);
+
+        const memoryStars = new THREE.Group();
+        for (let i = 0; i < 12; i++) {
+          const star = new THREE.Mesh(
+            new THREE.SphereGeometry(.12, 12, 12),
+            new THREE.MeshBasicMaterial({ color: 0xd6b66b, transparent: true, opacity: .92 })
+          );
+          star.position.set(-32 + Math.random() * 64, 12 + Math.random() * 24, -34 - Math.random() * 50);
+          star.userData = { kind: 'memory', index: i, base: star.position.clone(), phase: Math.random() * 9 };
+          memoryStars.add(star);
+          interactive.push(star);
+        }
+        scene.add(memoryStars);
+
+        const clouds = new THREE.Group();
+        for (let i = 0; i < 18; i++) {
+          const cloud = new THREE.Mesh(
+            new THREE.PlaneGeometry(18 + Math.random() * 22, 5 + Math.random() * 7),
+            new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(radialCanvas(256, [[0, 'rgba(247,244,234,.11)'], [.55, 'rgba(190,201,216,.08)'], [1, 'rgba(247,244,234,0)']])), transparent: true, depthWrite: false })
+          );
+          cloud.position.set(-80 + Math.random() * 160, 13 + Math.random() * 25, -38 - Math.random() * 50);
+          cloud.userData.speed = .12 + Math.random() * .24;
+          cloud.userData.origin = cloud.position.x;
+          clouds.add(cloud);
+        }
+        scene.add(clouds);
+
+        const fog = new THREE.Group();
+        for (let i = 0; i < 34; i++) {
+          const puff = new THREE.Mesh(
+            new THREE.PlaneGeometry(12 + Math.random() * 18, 3 + Math.random() * 5),
+            new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(radialCanvas(256, [[0, 'rgba(247,244,234,.12)'], [1, 'rgba(247,244,234,0)']])), transparent: true, depthWrite: false })
+          );
+          puff.position.set(-65 + Math.random() * 130, .1 + Math.random() * 2.2, -42 + Math.random() * 48);
+          puff.userData.speed = .05 + Math.random() * .12;
+          fog.add(puff);
+        }
+        scene.add(fog);
+
+        const fireflies = new THREE.Group();
+        for (let i = 0; i < 70; i++) {
+          const f = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 8), new THREE.MeshBasicMaterial({ color: 0xd6b66b, transparent: true, opacity: .8 }));
+          f.position.set(-26 + Math.random() * 52, .2 + Math.random() * 8, -18 + Math.random() * 30);
+          f.userData = { kind: 'firefly', phase: Math.random() * 10, amp: .6 + Math.random() * 1.6 };
+          fireflies.add(f);
+          interactive.push(f);
+        }
+        scene.add(fireflies);
+
+        const dustGeo = new THREE.BufferGeometry();
+        const dustCount = 420;
+        const dustPos = new Float32Array(dustCount * 3);
+        for (let i = 0; i < dustCount; i++) {
+          dustPos[i * 3] = -55 + Math.random() * 110;
+          dustPos[i * 3 + 1] = -1 + Math.random() * 22;
+          dustPos[i * 3 + 2] = -48 + Math.random() * 64;
+        }
+        dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+        const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xd6b66b, size: .055, transparent: true, opacity: .26, blending: THREE.AdditiveBlending }));
+        scene.add(dust);
+
+        const ripples = new THREE.Group();
+        scene.add(ripples);
+        const lanterns = new THREE.Group();
+        scene.add(lanterns);
+        const petals = new THREE.Group();
+        scene.add(petals);
+        const fireworks = new THREE.Group();
+        scene.add(fireworks);
+        const hugs = new THREE.Group();
+        scene.add(hugs);
+        const garden = new THREE.Group();
+        garden.visible = false;
+        scene.add(garden);
+        const couple = createCouple();
+        couple.group.visible = false;
+        scene.add(couple.group);
+        const message = new THREE.Group();
+        scene.add(message);
+        const cake = createCake();
+        cake.visible = false;
+        scene.add(cake);
+
+        return { moon, glow, water, stars, clouds, fog, fireflies, dust, ripples, lanterns, petals, fireworks, hugs, garden, couple, message, cake, goldLight };
+      }
+
+      function createCouple() {
+        const group = new THREE.Group();
+        const makePerson = (color, x, scale, bouquet) => {
+          const p = new THREE.Group();
+          const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .94 });
+          const head = new THREE.Mesh(new THREE.SphereGeometry(.38, 24, 24), mat);
+          head.position.y = 2.55;
+          const body = new THREE.Mesh(new THREE.CapsuleGeometry(.35, 1.35, 8, 20), mat);
+          body.position.y = 1.62;
+          const leg1 = new THREE.Mesh(new THREE.CapsuleGeometry(.12, 1.05, 6, 12), mat);
+          const leg2 = leg1.clone();
+          leg1.position.set(-.15, .55, 0); leg2.position.set(.15, .55, 0);
+          const arm1 = new THREE.Mesh(new THREE.CapsuleGeometry(.09, 1.05, 6, 12), mat);
+          const arm2 = arm1.clone();
+          arm1.position.set(-.43, 1.65, 0); arm2.position.set(.43, 1.65, 0);
+          arm1.rotation.z = .2; arm2.rotation.z = -.2;
+          p.add(head, body, leg1, leg2, arm1, arm2);
+          if (bouquet) {
+            const flowers = new THREE.Group();
+            for (let i = 0; i < 9; i++) {
+              const fl = new THREE.Mesh(new THREE.SphereGeometry(.08, 10, 10), new THREE.MeshBasicMaterial({ color: i % 3 ? 0xf7f4ea : 0xd6b66b }));
+              fl.position.set(.34 + Math.random() * .22, 1.65 + Math.random() * .34, -.08 + Math.random() * .08);
+              flowers.add(fl);
+            }
+            p.add(flowers);
+          }
+          p.position.x = x;
+          p.scale.setScalar(scale);
+          return p;
+        };
+        const man = makePerson(0x070709, -8, 1.22, true);
+        const woman = makePerson(0x08070a, 8, 1.12, false);
+        man.rotation.y = .22;
+        woman.rotation.y = -.22;
+        group.add(man, woman);
+        group.position.set(0, -1, -5);
+        return { group, man, woman };
+      }
+
+      function createCake() {
+        const g = new THREE.Group();
+        const icing = new THREE.MeshStandardMaterial({ color: 0xf7f4ea, roughness: .28, metalness: .03 });
+        const cream = new THREE.MeshStandardMaterial({ color: 0xe9dfc8, roughness: .34, metalness: .02 });
+        const gold = new THREE.MeshStandardMaterial({ color: 0xd6b66b, roughness: .2, metalness: .55 });
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(1.72, 1.86, .62, 96), icing);
+        const baseTrim = new THREE.Mesh(new THREE.TorusGeometry(1.74, .035, 10, 96), gold);
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.28, .52, 96), cream);
+        const topTrim = new THREE.Mesh(new THREE.TorusGeometry(1.18, .03, 10, 96), gold);
+        const plate = new THREE.Mesh(new THREE.CylinderGeometry(2.08, 2.18, .08, 96), new THREE.MeshStandardMaterial({ color: 0xf0ece1, roughness: .18, metalness: .28 }));
+        base.position.y = .18;
+        baseTrim.position.y = .52;
+        baseTrim.rotation.x = Math.PI / 2;
+        top.position.y = .82;
+        topTrim.position.y = 1.08;
+        topTrim.rotation.x = Math.PI / 2;
+        plate.position.y = -.18;
+        const candle = new THREE.Mesh(new THREE.CylinderGeometry(.055, .055, .78, 20), new THREE.MeshStandardMaterial({ color: 0xf7f4ea, roughness: .3 }));
+        candle.position.y = 1.5;
+        const wick = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .12, 8), new THREE.MeshBasicMaterial({ color: 0x17120c }));
+        wick.position.y = 1.95;
+        const flame = new THREE.Group();
+        const outer = new THREE.Mesh(new THREE.SphereGeometry(.18, 24, 24), new THREE.MeshBasicMaterial({ color: 0xd6b66b, transparent: true, opacity: .82, blending: THREE.AdditiveBlending }));
+        const inner = new THREE.Mesh(new THREE.SphereGeometry(.09, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfff4cc, transparent: true, opacity: .9, blending: THREE.AdditiveBlending }));
+        const flameLight = new THREE.PointLight(0xd6b66b, 1.15, 12);
+        outer.scale.set(.72, 1.45, .72);
+        inner.scale.set(.5, 1.1, .5);
+        flame.add(outer, inner, flameLight);
+        flame.position.y = 2.08;
+        g.add(plate, base, baseTrim, top, topTrim, candle, wick, flame);
+        g.userData.flame = flame;
+        g.userData.flameLight = flameLight;
+        g.position.set(0, -4, 2.8);
+        return g;
+      }
+
+      function intro() {
+        ui.whisper.textContent = '';
+      const tl = gsap.timeline({ defaults: { ease: 'power2.inOut' } });
+        tl.to({}, { duration: 3 });
+        ['Tonight is different.', "Don't rush.", 'Just stay with me.'].forEach((text) => {
+          tl.call(() => { ui.line.textContent = text; })
+            .to(ui.line, { opacity: 1, duration: 1.6 })
+            .to(ui.line, { opacity: 0, duration: 1.5, delay: 1.45 });
+        });
+        tl.call(() => { ui.whisper.textContent = 'A little world opens at midnight'; ui.line.textContent = ''; })
+          .to(ui.whisper, { opacity: 1, duration: 1.2 })
+          .to(ui.enter, { opacity: 1, duration: 1.4 }, '<.35');
+      }
+
+      function enterWorld() {
+        if (entered) return;
+        entered = true;
+        audio.start();
+        gsap.to(canvas, { opacity: 1, duration: 3.2, ease: 'sine.inOut' });
+        gsap.to(ui.enter, { opacity: 0, duration: .8, pointerEvents: 'none' });
+        gsap.to(ui.whisper, { opacity: 0, duration: .8 });
+        gsap.to(ui.topbar, { opacity: 1, duration: 1.7, delay: .7 });
+        gsap.to(ui.dock, { opacity: 1, duration: 1.7, delay: 1.1 });
+        gsap.fromTo(camera.position, { z: 42, y: 10 }, { z: 24, y: 7.6, duration: 4.8, ease: 'sine.inOut' });
+        showLine('The lake has been keeping time.', 2.2, 2.2);
+      }
+
+      function updateCountdown() {
+        if (!entered || finalStarted) return;
+        const left = targetMidnight - new Date();
+        if (left <= 0) {
+          ui.time.textContent = '00:00:00';
+          ui.countCaption.textContent = 'midnight has arrived';
+          return startMidnight();
+        }
+        const h = Math.floor(left / 3600000);
+        const m = Math.floor(left % 3600000 / 60000);
+        const s = Math.floor(left % 60000 / 1000);
+        ui.time.textContent = [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+        audio.setHeartbeat(left < 15000 ? 1 : 0);
+      }
+
+      function startMidnight() {
+        if (finalStarted) return;
+        finalStarted = true;
+        audio.setHeartbeat(1);
+        gsap.to(ui.topbar, { opacity: 0, duration: 1.2 });
+        gsap.to(ui.dock, { opacity: 0, duration: 1.2, pointerEvents: 'none' });
+        gsap.to(scene.fog, { density: .014, duration: 8 });
+        gsap.to(world.clouds.children, { x: '+=30', opacity: 0, duration: 8, stagger: .04 });
+        gsap.timeline()
+          .call(() => showLine('Almost...', 1.4, 1.2))
+          .call(() => showLine('The universe has been waiting.', 1.6, 1.4), null, '+=2.8')
+          .call(() => showLine('Just one more second.', 1.6, 1.2), null, '+=3.1')
+          .call(finalCountdown, null, '+=2.9');
+      }
+
+      function finalCountdown() {
+        let n = 10;
+        const tick = () => {
+          if (n === 0) return transformGarden();
+          ui.line.textContent = n;
+          gsap.fromTo(ui.line, { opacity: 0, scale: .78 }, { opacity: 1, scale: 1, duration: .34, ease: 'power2.out' });
+          gsap.to(ui.line, { opacity: 0, duration: .36, delay: .55 });
+          world.glow.scale.setScalar(1 + (10 - n) * .06);
+          world.goldLight.intensity = (10 - n) * .12;
+          audio.pulse();
+          n--;
+          setTimeout(tick, 1000);
+        };
+        tick();
+      }
+
+      function transformGarden() {
+        audio.setHeartbeat(0);
+        gsap.to(ui.flash, { opacity: 1, duration: .16, yoyo: true, repeat: 1, onComplete: () => ui.flash.style.opacity = 0 });
+        world.garden.visible = true;
+        world.couple.group.visible = true;
+        world.goldLight.intensity = 2.2;
+        scene.fog.color.set(0x0c1018);
+        scene.fog.density = .018;
+        createGarden();
+        gsap.to(camera.position, { x: 0, y: 5.7, z: 18, duration: 5.5, ease: 'sine.inOut' });
+        gsap.to(world.couple.man.position, { x: -1.05, duration: 5.2, ease: 'sine.inOut' });
+        gsap.to(world.couple.woman.position, { x: 1.05, duration: 5.2, ease: 'sine.inOut', onComplete: hugScene });
+      }
+
+      function hugScene() {
+        gsap.to(world.couple.man.rotation, { y: .08, duration: 1.4 });
+        gsap.to(world.couple.woman.rotation, { y: -.08, duration: 1.4 });
+        gsap.to(world.couple.man.position, { x: -.55, duration: 2.2, ease: 'sine.inOut' });
+        gsap.to(world.couple.woman.position, { x: .55, duration: 2.2, ease: 'sine.inOut' });
+        setTimeout(() => {
+          showToast('Send them a virtual hug.');
+          gsap.to(ui.hugBtn, { opacity: 1, y: 0, duration: 1.1, pointerEvents: 'auto', ease: 'sine.out' });
+        }, 1800);
+        setTimeout(() => assembleMessage(), 6800);
+      }
+
+      function assembleMessage() {
+        startBirthdayFireworks();
+        makeParticleWord('HAPPY', 0, 8.8, -14, () => {
+          makeParticleWord('BIRTHDAY', 0, 7, -14, () => {
+            makeParticleWord('NAVYA', 0, 5.2, -14, () => setTimeout(showCake, 2200));
+          });
+        });
+      }
+
+      function showCake() {
+        world.cake.visible = true;
+        gsap.to(world.cake.position, { y: -.18, duration: 3.4, ease: 'power3.out' });
+        gsap.to(camera.position, { y: 5.2, z: 15.5, duration: 3.8, ease: 'sine.inOut' });
+        gsap.to(world.goldLight, { intensity: 2.8, duration: 2.4 });
+        showToast('A little late, but full of love.');
+        gsap.to(ui.cakePanel, { opacity: 1, scale: 1, duration: 1.2, delay: 2.2, onStart: () => ui.cakePanel.classList.add('open') });
+        tryMic();
+      }
+
+      function extinguishCandle() {
+        const flame = world.cake.userData.flame;
+        if (!flame.visible) return;
+        gsap.to(flame.scale, { x: .04, y: .04, z: .04, duration: .75, ease: 'power2.in', onComplete: () => flame.visible = false });
+        gsap.to(world.cake.userData.flameLight, { intensity: 0, duration: .75, ease: 'power2.in' });
+        gsap.to(world.goldLight, { intensity: 1.3, duration: 1.6 });
+        gsap.to(ui.cakePanel, { opacity: 0, scale: .96, duration: .8, onComplete: () => ui.cakePanel.classList.remove('open') });
+        createSmoke(world.cake.position.clone().add(new THREE.Vector3(0, 1.8, 0)));
+        setTimeout(handwrittenLetter, 1500);
+      }
+
+      function handwrittenLetter() {
+        ui.paperText.textContent = '';
+        ui.paper.classList.add('open');
+        gsap.to(ui.paper, { opacity: 1, scale: 1, rotateX: 0, duration: 1.4, ease: 'power3.out' });
+        const text = 'Happy Birthday, Navya. I am sorry this reached you a little late, but every second of it was still meant for you. May this night stay with you like moonlight on still water: quiet, warm, and impossible to forget.';
+        let i = 0;
+        const write = setInterval(() => {
+          ui.paperText.textContent += text[i++] || '';
+          if (i > text.length) {
+            clearInterval(write);
+            setTimeout(finalEnding, 4200);
+          }
+        }, 45);
+      }
+
+      function finalEnding() {
+        gsap.to(ui.paper, { opacity: 0, scale: .96, duration: 1.2, onComplete: () => ui.paper.classList.remove('open') });
+        gsap.to(camera.position, { y: 32, z: 44, duration: 11, ease: 'sine.inOut' });
+        gsap.to(targetLook, { y: 5, z: -22, duration: 11, ease: 'sine.inOut' });
+        setTimeout(() => {
+          clearMessage();
+          makeParticleWord('Good Night, Navya', 0, 19, -40, () => {
+            shootingStar(true, false);
+            gsap.to([world.garden, world.couple.group, world.cake], { visible: false, duration: 1 });
+            gsap.to(renderer.domElement, { opacity: 0, duration: 7, delay: 4 });
+            setTimeout(() => {
+              ui.line.className = 'final-line';
+              ui.line.textContent = 'Sorry this arrived a little late. Some wishes still find their way by moonlight. Happy Birthday, Navya.';
+              gsap.to(ui.line, { opacity: 1, duration: 2.4 });
+              gsap.to(ui.line, { opacity: 0, duration: 2.8, delay: 5.2 });
+              audio.fadeOut();
+            }, 9500);
+          });
+        }, 5400);
+      }
+
+      function createGarden() {
+        if (world.garden.children.length) return;
+        const ground = new THREE.Mesh(new THREE.CircleGeometry(18, 96), new THREE.MeshStandardMaterial({ color: 0x111512, roughness: .8 }));
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -1.03;
+        world.garden.add(ground);
+        for (let i = 0; i < 180; i++) {
+          const flower = new THREE.Mesh(new THREE.SphereGeometry(.055 + Math.random() * .05, 8, 8), new THREE.MeshBasicMaterial({ color: Math.random() > .22 ? 0xf7f4ea : 0xd6b66b }));
+          const r = Math.sqrt(Math.random()) * 16;
+          const a = Math.random() * Math.PI * 2;
+          flower.position.set(Math.cos(a) * r, -.78 + Math.random() * .34, Math.sin(a) * r - 4);
+          world.garden.add(flower);
+        }
+        for (let i = 0; i < 36; i++) spawnPetal(true);
+      }
+
+      function makeParticleWord(text, x, y, z, done) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1100; canvas.height = 260;
+        ctx.fillStyle = '#fff';
+        ctx.font = text.length > 8 ? '84px Georgia' : '118px Georgia';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const pts = [];
+        for (let py = 0; py < canvas.height; py += 8) {
+          for (let px = 0; px < canvas.width; px += 8) {
+            if (data[(py * canvas.width + px) * 4 + 3] > 100) pts.push([(px - canvas.width / 2) / 42, -(py - canvas.height / 2) / 42]);
+          }
+        }
+        const count = Math.min(pts.length, 1300);
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          pos[i * 3] = x + (Math.random() - .5) * 70;
+          pos[i * 3 + 1] = y + (Math.random() - .5) * 36;
+          pos[i * 3 + 2] = z + (Math.random() - .5) * 18;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({ color: 0xd6b66b, size: .075, transparent: true, opacity: .95, blending: THREE.AdditiveBlending });
+        const points = new THREE.Points(geo, mat);
+        world.message.add(points);
+        const attr = geo.attributes.position;
+        for (let i = 0; i < count; i++) {
+          const p = pts[Math.floor(i * pts.length / count)];
+          gsap.to(attr.array, {
+            [i * 3]: x + p[0],
+            [i * 3 + 1]: y + p[1],
+            [i * 3 + 2]: z,
+            duration: 2.8,
+            delay: Math.random() * .9,
+            ease: 'power3.inOut',
+            onUpdate: () => attr.needsUpdate = true
+          });
+        }
+        setTimeout(() => done && done(), 3900);
+      }
+
+      function clearMessage() {
+        while (world.message.children.length) world.message.remove(world.message.children[0]);
+      }
+
+      function showLine(text, inDur = 1.2, hold = 1.2) {
+        ui.line.className = 'line';
+        ui.line.textContent = text;
+        gsap.killTweensOf(ui.line);
+        gsap.fromTo(ui.line, { opacity: 0, scale: .99 }, { opacity: 1, scale: 1, duration: inDur, ease: 'sine.out' });
+        gsap.to(ui.line, { opacity: 0, duration: 1.1, delay: inDur + hold, ease: 'sine.in' });
+      }
+
+      function showToast(text) {
+        ui.toast.textContent = text;
+        gsap.killTweensOf(ui.toast);
+        gsap.fromTo(ui.toast, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: .75, ease: 'sine.out' });
+        gsap.to(ui.toast, { opacity: 0, y: -8, duration: 1.1, delay: 2.1, ease: 'sine.in' });
+      }
+
+      function showPanel(text) {
+        ui.noteText.textContent = text;
+        ui.note.classList.add('open');
+        gsap.fromTo(ui.note, { opacity: 0, scale: .96 }, { opacity: 1, scale: 1, duration: .8, ease: 'power2.out' });
+      }
+
+      function closePanel(el) {
+        gsap.to(el, { opacity: 0, scale: .96, rotateX: el.id === 'paper' ? 70 : 0, duration: .55, onComplete: () => el.classList.remove('open') });
+      }
+
+      function createRipple(point) {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(.2, .22, 64),
+          new THREE.MeshBasicMaterial({ color: 0xf7f4ea, transparent: true, opacity: .45, side: THREE.DoubleSide })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(point.x, -.96, point.z);
+        world.ripples.add(ring);
+        gsap.to(ring.scale, { x: 14, y: 14, z: 14, duration: 3.2, ease: 'sine.out' });
+        gsap.to(ring.material, { opacity: 0, duration: 3.2, onComplete: () => world.ripples.remove(ring) });
+      }
+
+      function releaseLantern() {
+        const g = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(.2, .35, .62, 16), new THREE.MeshBasicMaterial({ color: 0xd6b66b, transparent: true, opacity: .75 }));
+        const light = new THREE.PointLight(0xd6b66b, .8, 8);
+        g.add(body, light);
+        g.position.set(-2 + Math.random() * 4, .2, 3);
+        world.lanterns.add(g);
+        gsap.to(g.position, { y: 18 + Math.random() * 9, x: g.position.x + 7 - Math.random() * 14, z: -28 - Math.random() * 18, duration: 14, ease: 'sine.inOut', onComplete: () => world.lanterns.remove(g) });
+      }
+
+      function spawnPetal(many) {
+        const petal = new THREE.Mesh(new THREE.PlaneGeometry(.18, .08), new THREE.MeshBasicMaterial({ color: Math.random() > .25 ? 0xf7f4ea : 0xd6b66b, transparent: true, opacity: .82, side: THREE.DoubleSide }));
+        petal.position.set(-16 + Math.random() * 32, 5 + Math.random() * 12, -10 + Math.random() * 16);
+        petal.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+        world.petals.add(petal);
+        const dur = many ? 10 + Math.random() * 12 : 7;
+        gsap.to(petal.position, { y: -1, x: petal.position.x + 5 - Math.random() * 10, duration: dur, ease: 'sine.inOut', onComplete: () => world.petals.remove(petal) });
+      }
+
+      function shootingStar(force, announce = false) {
+        if (!force && Math.random() > .006) return;
+        const s = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 10), new THREE.MeshBasicMaterial({ color: 0xd6b66b }));
+        s.position.set(45, 36, -62);
+        scene.add(s);
+        gsap.to(s.position, { x: -38, y: 15, duration: 1.45, ease: 'power2.in', onComplete: () => {
+          scene.remove(s);
+          if (announce && !finalStarted) showToast('A quiet wish moved through the stars.');
+        }});
+      }
+
+      function createSmoke(pos) {
+        for (let i = 0; i < 18; i++) {
+          const p = new THREE.Mesh(new THREE.SphereGeometry(.07 + Math.random() * .08, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf7f4ea, transparent: true, opacity: .22 }));
+          p.position.copy(pos);
+          scene.add(p);
+          gsap.to(p.position, { y: pos.y + 1.8 + Math.random(), x: pos.x + (Math.random() - .5) * .7, duration: 2 + Math.random(), ease: 'sine.out', onComplete: () => scene.remove(p) });
+          gsap.to(p.material, { opacity: 0, duration: 2.2 });
+        }
+      }
+
+      function ceremonialFireworks(count = 5) {
+        for (let i = 0; i < count; i++) {
+          setTimeout(() => {
+            const x = -20 + Math.random() * 40;
+            const y = 9 + Math.random() * 17;
+            const z = -28 - Math.random() * 18;
+            fireworkBurst(new THREE.Vector3(x, y, z), i % 2 ? 0xd6b66b : 0xf7f4ea);
+          }, i * 360);
+        }
+      }
+
+      function startBirthdayFireworks() {
+        ceremonialFireworks(6);
+        let bursts = 0;
+        const timer = setInterval(() => {
+          ceremonialFireworks(3);
+          bursts++;
+          if (bursts > 15) clearInterval(timer);
+        }, 720);
+      }
+
+      function fireworkBurst(origin, color = 0xd6b66b) {
+        const count = 150;
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(count * 3);
+        const dirs = [];
+        for (let i = 0; i < count; i++) {
+          pos[i * 3] = origin.x;
+          pos[i * 3 + 1] = origin.y;
+          pos[i * 3 + 2] = origin.z;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+          const speed = 2.7 + Math.random() * 4.5;
+          dirs.push(new THREE.Vector3(
+            Math.sin(phi) * Math.cos(theta) * speed,
+            Math.cos(phi) * speed * .82,
+            Math.sin(phi) * Math.sin(theta) * speed
+          ));
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({ color, size: .16, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+        const points = new THREE.Points(geo, mat);
+        points.userData = { birth: clock.getElapsedTime(), dirs, life: 3.4 };
+        world.fireworks.add(points);
+
+        const glow = new THREE.PointLight(color, 1.4, 24);
+        glow.position.copy(origin);
+        glow.userData = { birth: clock.getElapsedTime(), life: 1.4 };
+        world.fireworks.add(glow);
+      }
+
+      function sendVirtualHug() {
+        gsap.to(ui.hugBtn, { opacity: 0, y: 12, duration: .7, pointerEvents: 'none' });
+        showToast('Your hug reached them.');
+        for (let h = 0; h < 3; h++) {
+          setTimeout(() => heartGlow(h), h * 420);
+        }
+        gsap.fromTo(world.glow.scale, { x: moonGlow, y: moonGlow }, { x: moonGlow + .22, y: moonGlow + .22, duration: 1.4, yoyo: true, repeat: 1, ease: 'sine.inOut' });
+      }
+
+      function heartGlow(seed = 0) {
+        const count = 150;
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          const a = (i / count) * Math.PI * 2;
+          const heartX = 16 * Math.pow(Math.sin(a), 3) / 13;
+          const heartY = (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 13;
+          pos[i * 3] = heartX * .72 + (Math.random() - .5) * .08;
+          pos[i * 3 + 1] = 3.2 + heartY * .72 + (Math.random() - .5) * .08;
+          pos[i * 3 + 2] = -4.6 + (Math.random() - .5) * .12;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({ color: seed % 2 ? 0xf7f4ea : 0xd6b66b, size: .07, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+        const heart = new THREE.Points(geo, mat);
+        heart.position.y = -1.2;
+        world.hugs.add(heart);
+        gsap.to(heart.material, { opacity: .9, duration: .8, ease: 'sine.out' });
+        gsap.to(heart.position, { y: .2, z: -5.4, duration: 2.8, ease: 'sine.inOut' });
+        gsap.to(heart.scale, { x: .72, y: .72, z: .72, duration: 2.8, ease: 'sine.inOut' });
+        gsap.to(heart.material, { opacity: 0, duration: 1.1, delay: 2.1, onComplete: () => world.hugs.remove(heart) });
+      }
+
+      function tryMic() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+          const ctx = audio.ctx || new (window.AudioContext || window.webkitAudioContext)();
+          const source = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 512;
+          source.connect(analyser);
+          const data = new Uint8Array(analyser.frequencyBinCount);
+          const listen = () => {
+            analyser.getByteFrequencyData(data);
+            const avg = data.reduce((a, b) => a + b, 0) / data.length;
+            if (avg > 62) {
+              stream.getTracks().forEach(t => t.stop());
+              extinguishCandle();
+            } else if (world.cake.visible && world.cake.userData.flame.visible) requestAnimationFrame(listen);
+          };
+          listen();
+        }).catch(() => {});
+      }
+
+      function onPointer(ev) {
+        if (!entered) return;
+        pointer.x = (ev.clientX / innerWidth) * 2 - 1;
+        pointer.y = -(ev.clientY / innerHeight) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const hit = raycaster.intersectObjects(interactive, false)[0];
+        if (!hit) return;
+        const kind = hit.object.userData.kind;
+        if (kind === 'water') createRipple(hit.point);
+        if (kind === 'moon') {
+          moonGlow += .08;
+          gsap.to(world.glow.scale, { x: moonGlow, y: moonGlow, duration: .7 });
+          showPanel(moonLines[Math.floor(Math.random() * moonLines.length)]);
+        }
+        if (kind === 'memory' && !openedStars.has(hit.object.userData.index)) {
+          openedStars.add(hit.object.userData.index);
+          showPanel(notes[hit.object.userData.index % notes.length]);
+          gsap.to(hit.object.material, { opacity: 0, duration: .8, onComplete: () => hit.object.visible = false });
+        }
+        if (kind === 'firefly') {
+          collectedFireflies++;
+          gsap.to(hit.object.material, { opacity: 0, duration: .45, onComplete: () => hit.object.visible = false });
+          if (collectedFireflies === 7) showPanel('You found the quietest light. It was saving this: you are deeply loved.');
+        }
+      }
+
+      function onMove(ev) {
+        if (!entered) return;
+        const x = ev.clientX / innerWidth - .5;
+        const y = ev.clientY / innerHeight - .5;
+        targetLook.x = x * 3;
+        targetLook.y = 2.4 - y * 1.2;
+        if (ev.buttons) world.clouds.position.x += ev.movementX * .018;
+      }
+
+      function onTilt(ev) {
+        world.stars.position.x = (ev.gamma || 0) * .025;
+        world.stars.position.y = (ev.beta || 0) * .01;
+      }
+
+      function animate() {
+        const t = clock.getElapsedTime();
+        const dt = clock.getDelta();
+        requestAnimationFrame(animate);
+
+        camera.position.x += (Math.sin(t * .18) * .85 - camera.position.x) * .012;
+        camera.position.y += (7.2 + Math.sin(t * .13) * .28 - camera.position.y) * (finalStarted ? .004 : .01);
+        camera.lookAt(targetLook);
+
+        world.moon.material.opacity = .95 + Math.sin(t * .7) * .03;
+        world.glow.material.opacity = .62 + Math.sin(t * .34) * .08;
+        const waterPos = world.water.geometry.attributes.position;
+        for (let i = 0; i < waterPos.count; i++) {
+          const x = waterPos.getX(i), y = waterPos.getY(i);
+          waterPos.setZ(i, Math.sin(x * .22 + t * .55) * .08 + Math.cos(y * .18 + t * .4) * .05);
+        }
+        waterPos.needsUpdate = true;
+
+        world.stars.material.opacity = .68 + Math.sin(t * .9) * .1;
+        world.clouds.children.forEach(c => {
+          c.position.x += c.userData.speed * dt;
+          if (c.position.x > 90) c.position.x = -90;
+        });
+        world.fog.children.forEach((f, i) => {
+          f.position.x += f.userData.speed * dt;
+          f.position.y += Math.sin(t * .2 + i) * .0015;
+          if (f.position.x > 72) f.position.x = -72;
+        });
+        world.fireflies.children.forEach((f, i) => {
+          if (!f.visible) return;
+          f.position.x += Math.sin(t * .8 + f.userData.phase) * .006;
+          f.position.y += Math.cos(t * 1.1 + i) * .004 * f.userData.amp;
+          f.material.opacity = .48 + Math.sin(t * 2.4 + i) * .32;
+        });
+        world.dust.rotation.y += .0004;
+        world.fireworks.children.slice().forEach(points => {
+          if (points.isPointLight) {
+            const age = t - points.userData.birth;
+            points.intensity = Math.max(0, 1.4 * (1 - age / points.userData.life));
+            if (age > points.userData.life) world.fireworks.remove(points);
+            return;
+          }
+          const age = t - points.userData.birth;
+          const attr = points.geometry.attributes.position;
+          for (let i = 0; i < attr.count; i++) {
+            const d = points.userData.dirs[i];
+            attr.setXYZ(i, attr.getX(i) + d.x * dt, attr.getY(i) + (d.y - age * 1.4) * dt, attr.getZ(i) + d.z * dt);
+          }
+          attr.needsUpdate = true;
+          points.material.opacity = Math.max(0, 1 - age / points.userData.life);
+          if (age > points.userData.life) world.fireworks.remove(points);
+        });
+        world.memoryPulse = world.memoryPulse || 0;
+        world.couple.group.children.forEach((person, i) => {
+          person.position.y = Math.sin(t * 1.3 + i) * .025;
+          person.rotation.z = Math.sin(t * .9 + i) * .012;
+        });
+        if (world.cake.userData.flame && world.cake.userData.flame.visible) {
+          const flicker = .88 + Math.sin(t * 17) * .13;
+          world.cake.userData.flame.scale.x = flicker;
+          world.cake.userData.flame.scale.z = .88 + Math.cos(t * 13) * .1;
+          world.cake.userData.flameLight.intensity = 1 + Math.sin(t * 15) * .18;
+        }
+        shootingStar(false);
+        renderer.render(scene, camera);
+      }
+
+      function radialCanvas(size, stops, moonTexture) {
+        const c = document.createElement('canvas');
+        c.width = c.height = size;
+        const ctx = c.getContext('2d');
+        const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        stops.forEach(s => g.addColorStop(s[0], s[1]));
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, size, size);
+        if (moonTexture) {
+          ctx.globalAlpha = .12;
+          for (let i = 0; i < 38; i++) {
+            ctx.beginPath();
+            ctx.fillStyle = i % 2 ? '#928d80' : '#fff';
+            ctx.arc(size * (.25 + Math.random() * .5), size * (.25 + Math.random() * .5), 5 + Math.random() * 18, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        return c;
+      }
+
+      function nextMidnight() {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+
+      function createAudio() {
+        let ctx, master, wind, water, piano, heartbeat;
+        const api = {
+          ctx: null,
+          start() {
+            if (ctx) return;
+            ctx = new (window.AudioContext || window.webkitAudioContext)();
+            api.ctx = ctx;
+            master = ctx.createGain();
+            master.gain.value = .0001;
+            master.connect(ctx.destination);
+            wind = noiseLayer(.18, 420, 'lowpass');
+            water = noiseLayer(.13, 900, 'bandpass');
+            piano = ctx.createGain();
+            piano.gain.value = .05;
+            piano.connect(master);
+            heartbeat = ctx.createGain();
+            heartbeat.gain.value = 0;
+            heartbeat.connect(master);
+            setInterval(playPiano, 4200);
+            gsap.to(master.gain, { value: .72, duration: 4 });
+          },
+          setHeartbeat(v) {
+            if (!heartbeat) return;
+            gsap.to(heartbeat.gain, { value: v ? .18 : 0, duration: 1.2 });
+          },
+          pulse() { if (ctx && heartbeat) thump(); },
+          fadeOut() { if (master) gsap.to(master.gain, { value: 0, duration: 8 }); }
+        };
+        function noiseLayer(gainValue, freq, type) {
+          const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.loop = true;
+          const filter = ctx.createBiquadFilter();
+          filter.type = type;
+          filter.frequency.value = freq;
+          const gain = ctx.createGain();
+          gain.gain.value = gainValue;
+          source.connect(filter); filter.connect(gain); gain.connect(master); source.start();
+          return gain;
+        }
+        function playPiano() {
+          if (!ctx || !piano) return;
+          [261.63, 329.63, 392, 493.88][Math.floor(Math.random() * 4)];
+          const notes = [261.63, 329.63, 392, 493.88, 587.33];
+          const base = notes[Math.floor(Math.random() * notes.length)];
+          [0, 7, 12].forEach((semi, i) => {
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = base * Math.pow(2, semi / 12);
+            g.gain.setValueAtTime(0, ctx.currentTime);
+            g.gain.linearRampToValueAtTime(.065 / (i + 1), ctx.currentTime + .05);
+            g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + 2.6);
+            osc.connect(g); g.connect(piano); osc.start(); osc.stop(ctx.currentTime + 2.7);
+          });
+        }
+        function thump() {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.frequency.setValueAtTime(72, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(38, ctx.currentTime + .18);
+          g.gain.setValueAtTime(.55, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .24);
+          osc.connect(g); g.connect(heartbeat); osc.start(); osc.stop(ctx.currentTime + .25);
+        }
+        return api;
+      }
+
+      ui.enter.addEventListener('click', enterWorld);
+      ui.hugBtn.addEventListener('click', sendVirtualHug);
+      ui.blow.addEventListener('click', extinguishCandle);
+      document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => closePanel(document.getElementById(btn.dataset.close))));
+      document.getElementById('lantern').addEventListener('click', releaseLantern);
+      document.getElementById('letterBtn').addEventListener('click', () => {
+        ui.paperText.textContent = letters[Math.floor(Math.random() * letters.length)];
+        ui.paper.classList.add('open');
+        gsap.to(ui.paper, { opacity: 1, scale: 1, rotateX: 0, duration: .9, ease: 'power3.out' });
+      });
+      document.getElementById('constellation').addEventListener('click', () => {
+        constellationMode = !constellationMode;
+        showPanel(constellationMode ? 'The stars are listening. Connect them gently.' : 'The constellation returns to silence.');
+        world.stars.material.color.set(constellationMode ? 0xd6b66b : 0xf7f4ea);
+      });
+      document.getElementById('petals').addEventListener('click', () => { for (let i = 0; i < 8; i++) spawnPetal(false); });
+      addEventListener('pointerdown', onPointer);
+      addEventListener('pointermove', onMove);
+      addEventListener('deviceorientation', onTilt);
+      addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+    })();
+  </script>
+</body>
+</html>
